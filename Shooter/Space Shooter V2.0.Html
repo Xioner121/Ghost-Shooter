@@ -7,14 +7,16 @@
 <body background = "Sprites\SiteBackGroundTest.png">
   <center>
 <canvas id="SpaceCanvas" width="1000" height="700"></canvas>
-<h2>Controls: W-go up
-              S-go down
-              D-fire bullet
+<h2>            Controls: W-go up
+                S-go down
+                D-fire bullet
 </h2>
 </center>
 <audio id="BulletAudioHTML" src="Audio\BulletAudioTest.wav"></audio>
 <audio id="MonsterDeathAudioHTML" src="Audio\MonsterAudioTest.wav"></audio>
 <audio id="BossAudioHTML" src="Audio\untitled.wav"></audio>
+<audio id="Power" src="Audio\PowerUp.wav"></audio>
+<audio id="Charge" src="Audio\MonsterCharge.wav"></audio>
 <script>
 // Image Variables
 var BulletImg = new Image();
@@ -49,7 +51,8 @@ HardImg.src = 'Sprites/HardImg.png'
 var Directions = new Image();
 Directions.src = 'Sprites/Directions.png'
 var MonsterXChange = 1;
-
+var SkullImage = new Image();
+SkullImage.src = 'Sprites/Skull.png'
 // Audio Variables
 var BulletAudio = document.getElementById('BulletAudioHTML');
 var MonsterDeathAudio = document.getElementById('MonsterDeathAudioHTML')
@@ -63,17 +66,16 @@ var canvas;
 var canvasContext;
 var playerY = 100;
 var UpDown = 0;
-var BulletTrue = false;
-var BulletX = 100;
-var BulletY = 0;
 // Level value
 var Hard = false;
 var GameLevel = 0;
 var KillScore = 0;
+var BulletC = false;
 //Boss Checking
 var BossTrue = false;
 var BossDead = false;
 // Boss Drawing Variables
+var BossAttackWait = 0;
 var BossX = 1000;
 var BossY = 50;
 var BossHealth = 100;
@@ -82,16 +84,22 @@ BossHealthBar.src="Sprites/BossHealthBar.png"
 var BossHealthBarX = 0;
 var BossProjectile = new Image();
 BossProjectile.src="Sprites/BossProjectile.png"
-var BossProjectX = BossX;
-var BossProjectY = 50;
 var BossCount = -3;
+var BossBulletSpeed = false;
 // General Function, Does alot of things
-var PlayerSpeed = 4;
+var PlayerSpeed = 1;
 var BulletUp = false;
 var PlayerHealth = false;
 var d = new Date();
 var CurrentTime = 0;
 var BulletTime = 0;
+var BossTime = 0;
+var BulletTrue = false;
+var BulletX = 100;
+var BulletY = 0;
+var BossWait = 1800;
+var BossAttack = false;
+var Timecheck = 0;
 window.onload = function() {
   canvas = document.getElementById('SpaceCanvas');
   canvasContext = canvas.getContext('2d');
@@ -119,18 +127,13 @@ window.onload = function() {
         if (BulletTrue == false) {
           if (((((CurrentTime - BulletTime) >= 800) && Hard == false) || (((CurrentTime - BulletTime) >= 500) && Hard == true)) && BulletUp == false) {
           BulletTime = CurrentTime;
-          BulletTrue = true;
-          BulletY = (playerY + 10)
-          BulletAudio.play();
-        } else if (BulletUp == true){
+          ShootBullet();
+        } else if (BulletUp == true && ((CurrentTime - BulletTime) >= 200)){
           BulletTime = CurrentTime;
-          BulletTrue = true;
-          BulletY = (playerY + 10)
-          BulletAudio.play();
+          ShootBullet();
         }
       }
      }
-         requestAnimationFrame(MoveKeyLoop);
    }
   // Loading
 canvasContext.drawImage(BackgroundImg,0,0,canvas.width,canvas.height);
@@ -139,22 +142,24 @@ canvasContext.drawImage(StartButton,425,328,150,44);
 canvasContext.drawImage(Directions,400,50,200,200);
 // Starting Game
 window.addEventListener('keydown', function start(event) {
-    if ( event.keyCode == 78) {
-      window.removeEventListener('keydown', start)
-      fun();
+    if ( event.keyCode == 78 && GameLevel == 0) {
+  window.removeEventListener('keydown', start);
+            fun();
     }
   }
 );
   window.addEventListener('keydown', function hard(event) {
-      if ( event.keyCode == 72) {
-        window.removeEventListener('keydown', hard)
+      if ( event.keyCode == 72 && GameLevel == 0) {
+        window.removeEventListener('keydown', hard);
         Hard = true;
-        PlayerSpeed = 6;
-        fun();
+        PlayerSpeed = 1.2;
+        BossWait = 1100;
+                fun();
       }
     }
   );
-function fun() {setTimeout(function(){setInterval(drawEverything, 10);requestAnimationFrame(MoveKeyLoop);setInterval(function(){CurrentTime = d.getTime(); d = new Date();}, 10)}, 20);}
+function fun() {
+  setTimeout(function(){setInterval(drawEverything, 10);setInterval(MoveKeyLoop, 1);setInterval(function(){CurrentTime = d.getTime(); d = new Date();}, 10)}, 20);}
 };
 // Drawing Player
 function drawEverything() {
@@ -163,7 +168,6 @@ function drawEverything() {
    if ((GameLevel >= 150) && (BossTrue === false) && (BossDead === false)) {
      BossTrue = true;
      alert("End of wave. Boss Incoming.")
-     SpawnBoss();
    };
    //Drawing Background
    canvasContext.drawImage(BackgroundImg,0,0,canvas.width,canvas.height);
@@ -172,16 +176,6 @@ if (Hard == true) {canvasContext.drawImage(HardImg,650,10,50,50);}
    canvasContext.fillStyle = "#FFFFFF";
    canvasContext.font = "15px Georgia";
    canvasContext.fillText(KillScore, 500,70)
-   //Shooting The Bullet
-          if (BulletTrue == true) {
-     canvasContext.drawImage(BulletImg,BulletX,BulletY,20,20);
-     BulletX += 20;
-  //Bullet Hit detection
-     if (BulletX >= 1000) {
-       BulletTrue = false;
-       BulletX = 100
-     }
-      }
       //Drawing Player
       if (PlayerImgCount <= 10) {
 canvasContext.drawImage(PlayerImg,100,playerY,50,50);
@@ -201,9 +195,11 @@ if (GameLevel <= 40) {if ((Math.floor(Math.random() * 200)) == 100) {SpawnMonste
 } else if ((GameLevel > 40) && (GameLevel <= 100)) {
   if ((Math.floor(Math.random() * 90) == 80)) {SpawnMonster();  if (Hard == true) {SpawnMonster()}}
   if (Hard == true) {MonsterXChange = 1.5;} else {MonsterXChange = 1.25;}
-} else if ((GameLevel > 100) && (BossDead == false)) {
+} else if ((GameLevel > 100) && (GameLevel <= 150)) {
   if ((Math.floor(Math.random() * 40)) == 30) {SpawnMonster();}
   if (Hard == true) {MonsterXChange = 2.5;} else {MonsterXChange = 1.5;}
+} else if ((GameLevel >= 150) && (BossDead == false)) {
+  if ((Math.floor(Math.random() * 100)) == 5) {SpawnMonster(); }
 } else if ((GameLevel > 150) && (BossDead == true)) {
   if ((Math.floor(Math.random() * 30)) == 5) {SpawnMonster();  if (Hard == true) {SpawnMonster(); SpawnMonster();}}
   if (Hard == true) {MonsterXChange = 4;} else {MonsterXChange = 2;}
@@ -221,7 +217,7 @@ if (GameLevel <= 40) {if ((Math.floor(Math.random() * 800)) == 100) {SpawnUpImag
 }
 // Drawing PowerUpBar
 canvasContext.drawImage(PowerUpBar,400,0,200,60);
-if (PlayerSpeed == 8){canvasContext.drawImage(PowerUpSp,412.5,5,50,50);}
+if (PlayerSpeed == 2){canvasContext.drawImage(PowerUpSp,412.5,5,50,50);}
 if (PlayerHealth == true){canvasContext.drawImage(PowerUpHt,475,5,50,50);}
 if (BulletUp == true){canvasContext.drawImage(PowerUpBl,537.5,5,50,50);}
 // Checking to Draw Boss
@@ -237,30 +233,102 @@ if (BossTrue === true) {
   canvasContext.drawImage(MonsterBossImg, BossX, BossY, 200, 200);
   canvasContext.drawImage(BossHealthBar, BossHealthBarX, 40, 300, 30)
   canvasContext.drawImage(BossText, 0,-35, 100, 100)
-if (Hard == false) {BossX += -0.1} else {BossX += -0.3}
+  if (BossAttack == false) {
+if (Hard == false) {BossX += -0.1} else {BossX += -0.125}
+}
+if (BossAttack == false) {
   BossY += BossCount
+}
 if (BossY < 0) { if (Hard == false) {BossCount = 3;} else {BossCount = 6;}} else if (BossY > 500) {if (Hard == false) {BossCount = -3;} else {BossCount = -6;}}
-  if (Hard == false) {BossProjectX = (BossProjectX - 3);} else {BossProjectX = (BossProjectX - 5);}
-    canvasContext.drawImage(BossProjectile, BossProjectX,BossProjectY, 40, 40)
-    if (playerY > BossProjectY) {if (Hard == false) {BossProjectY += 1;} else {BossProjectY += 2;}}
-    if (playerY < BossProjectY) {if (Hard == false) {BossProjectY -= 1;} else {BossProjectY -= 2;}}
-    if (BossProjectX < 0) {BossProjectY = BossY; BossProjectX = BossX;BossAudio.play();}
+//Boss Bullet Shooting
+if (BossHealth <= 60 && BossAttack == false && CurrentTime - Timecheck >= 4000) {
+  BossBulletSpeed = true;
+  Timecheck = CurrentTime;
+  if (BossHealth > 20) {
+  setTimeout(function(){BossBulletSpeed = false;}, 520)
+}
+    for (i = 0; i < 5; i ++) {
+       SpawnBossBullet();
+       setTimeout(SpawnBossBullet, 100)
+       if (Hard == true) {setTimeout(SpawnBossBullet, 50)}
+    }
+}
+if (BossHealth <= 30) {
+BossWait = 800;
+if (Hard == true) {BossWait = 600;}
+}
+if (BossHealth <= 40 && BossAttack == false && CurrentTime - BossAttackWait >= 16000) {
+  BossCharge();
+  BossAttack = true;
+  BossAttackWait = CurrentTime;
+  var Atck = Charge.cloneNode();
+    Atck.play();
+}
+  if (CurrentTime - BossTime >= BossWait && BossAttack == false) {
+    BossTime = CurrentTime;
+SpawnBossBullet();
+}
   // Bullet Hit detection
-  if (((BulletX >= BossX - 20) && ((BulletX <= BossX + 220)))
-&& ((BulletY <= BossY + 220) && (BulletY >= BossY -20))
-) {BulletTrue = false;
-    BulletX = 100;
-    BossHealth = (BossHealth - 1);
-    BossHealthBarX = BossHealthBarX - 3;
-  }
-  if (BossX < 100) {
+ if (BulletObject.length != 0) {
+  for (i = 0; i <= BulletObject.length - 1 && BossDead == false; i ++) {
+  if (BulletObject[i] != 1 && BulletObject[i] != undefined) { if (
+  ((BossY + 220 >= (BulletObject[i].Y)) && (BossY -20 <= (BulletObject[i].Y)))
+  &&
+  ((BossX + 220 >= (BulletObject[i].X)) && ( BossX - 20 <= (BulletObject[i].X)))
+  &&
+  BossDead == false
+  )  {BulletObject[i] = 1;
+        BossHealth = (BossHealth - 1);
+        BossHealthBarX = BossHealthBarX - 3;
+    };}
+  }}
+  if (BossX < 90 && BossAttack == false) {
     if (PlayerAlive == true) {
       PlayerAlive = false;
     alert("Player has failed, Game Over. " + "Score: " + KillScore)
        window.location.reload(true);
      }
   }
+if (BossX <= 140 && (BossY <= playerY + 50) && BossY >= playerY - 200) {
+  if (PlayerHealth == false) {
+PlayerDeath();}
+  }
 };
+// Clearing BUlletObject Array
+if ((check_for_equal_array_elements(BulletObject) == true && BulletC == false && (BulletObject[BulletObject.length-1] == 1)) || BulletObject[0] == undefined) {
+    BulletObject = [];
+}
+}
+//Boss bullet shooting Function
+function SpawnBossBullet () {
+  var BossA = BossAudio.cloneNode();
+  BossA.play();
+  var BossBulletSpeed2 = BossBulletSpeed;
+  var BulletDead = false;
+  var BossProjectX = BossX;
+  var BossProjectY = BossY;
+  requestAnimationFrame(DrawBullet);
+  setInterval(HitDetect, 20);
+  function HitDetect() {
+if ((BossProjectY >= (playerY - 38)) && (BossProjectY <= (playerY + 50))
+    &&
+    ((BossProjectX >= 100) && (BossProjectX <= (150))) && BulletDead == false)
+    {
+      if (PlayerHealth == false) {
+PlayerDeath(); BulletDead = true;} else {BulletDead = true;}
+}
+if (BulletDead == true) {
+  clearInterval(HitDetect);
+    }
+  }
+  function DrawBullet() {
+  if (Hard == false) {BossProjectX = (BossProjectX - 3);} else {BossProjectX = (BossProjectX - 4);} if (BossBulletSpeed2 == true) {BossProjectX -= 2}
+    canvasContext.drawImage(BossProjectile, BossProjectX,BossProjectY, 40, 40)
+    if (playerY > BossProjectY) {if (Hard == false) {BossProjectY += 1;} else {BossProjectY += 1.5;} if (BossBulletSpeed2 == true) {BossProjectY += 0.5}}
+    if (playerY < BossProjectY) {if (Hard == false) {BossProjectY -= 1;} else {BossProjectY -= 1.5;} if (BossBulletSpeed2 == true) {BossProjectY -= 0.5}}
+    if (BossProjectX < 0) {BulletDead = true};
+    if (BulletDead == false) {requestAnimationFrame(DrawBullet);}
+  }
 }
 // Monster Spawn function
 function SpawnMonster() {
@@ -274,22 +342,23 @@ var MonsterFloat2 = 1;
     requestAnimationFrame(DrawMonster);
 // Monster Hit Detection
 function DetectMonster() {
-  if (
-((MonsterY >= (BulletY - 40)) && (MonsterY <= (BulletY + 30)))
+  if (BulletObject.length != 0) {
+for (i = 0; i <= BulletObject.length - 1 && MonsterDead == false; i ++) {
+if (BulletObject[i] != 1 && BulletObject[i] != undefined) { if (
+((MonsterY >= (BulletObject[i].Y - 40)) && (MonsterY <= (BulletObject[i].Y + 30)))
 &&
-((MonsterX >= (BulletX - 40)) && (MonsterX <= (BulletX + 30)))
+((MonsterX >= (BulletObject[i].X - 40)) && (MonsterX <= (BulletObject[i].X + 30)))
 &&
 MonsterDead === false
-)
-  {
-    BulletTrue = false;
-    BulletX = 100;
+)  {BulletObject[i] = 1;
     MonsterDead = true;
     KillScore ++;
     if (Hard == true) {KillScore ++;}
-    MonsterDeathAudio.play();
+    var MonsterDeathAudio2 = MonsterDeathAudio.cloneNode();
+    MonsterDeathAudio2.play();
     return;
-  };
+  };}
+}}
 };
 // Monster Drawing
 function DrawMonster() {
@@ -318,7 +387,8 @@ function KilledPlayer() {
 &&
 ((MonsterX >= (100 - 50)) && (MonsterX <= (100 + 50)))
 ) {
-PlayerDeath()
+  if (PlayerHealth == true) {MonsterDead = true;} else
+{PlayerDeath()}
 } else if ((MonsterX < 0) && PlayerHealth == false) {
   PlayerDeath()
 } else if ((MonsterX < 0) && PlayerHealth == true) {
@@ -327,23 +397,11 @@ PlayerDeath()
   }
 };
 var PlayerAlive = true;
-  function SpawnBoss () {
-    setInterval(HitDetect, 20);
-    function HitDetect() {
-if ((BossProjectY >= (playerY - 40)) && (BossProjectY <= (playerY + 50))
-      &&
-      ((BossProjectX >= 100) && (BossProjectX <= (150))))
-      {
-PlayerDeath()
-      }
-    }
-  }
 // Setting PowerUp Selection
 var PowerUpChoice = 0;
 var SpawnUpTypeGlobal = null;
 function SpawnUpImage() {
   PowerUpChoice = Math.floor(Math.random() * 3)
-  console.log(PowerUpChoice)
   switch(PowerUpChoice) {
   case 1:
     SpawnUpTypeGlobal = 1
@@ -396,14 +454,16 @@ PowerUps.src = "Sprites/PowerBullet.png"
 ((PowerY >= (playerY - 50)) && (PowerY <= (playerY + 50)))
 ) {
 SpawnExist = false;
+var PowSound = Power.cloneNode();
+PowSound.play();
 if (SpawnUpType == 1) {
-  PlayerSpeed = 8;
+  PlayerSpeed = 2;
   var LocalTime = CurrentTime;
 var IntervalA = setInterval(function(){
    if ((CurrentTime - LocalTime) >= 5000) {
-     if (Hard == false) {PlayerSpeed = 4;} else {PlayerSpeed = 6;}
+     if (Hard == false) {PlayerSpeed = 1;} else {PlayerSpeed = 1.2;}
      clearInterval(IntervalA);
-   } else {  PlayerSpeed = 8;}
+   } else {  PlayerSpeed = 2;}
  }, 10)
 }//Speed
 else if (SpawnUpType == 2) {
@@ -450,17 +510,106 @@ function PlayerDeath(){
      window.location.reload(true);
    }
 }
+// Shooting Bullet function
+function ShootBullet() {
+  var BulletTrue = true;
+  var BulletX = 100;
+  var BulletY = (playerY + 10);
+  var Bl = {
+   X: BulletX,
+   Y: BulletY
+ };
+ var BulletSound2 = BulletAudio.cloneNode();
+ BulletSound2.play();
+  BulletObject.push(Bl)
+  var ArrPos = (BulletObject.length) - 1;
+  requestAnimationFrame(Draw);
+  //Shooting The Bullet
+  function Draw() {
+    canvasContext.drawImage(BulletImg,BulletX,BulletY,20,20);
+    BulletX += 20;
+    BulletC = true;
+    Bl = {
+     X: BulletX,
+     Y: BulletY
+   };
+   if (BulletObject[ArrPos] != 1) {
+    BulletObject[ArrPos] = Bl;} else {BulletTrue = false;}
+    //Bullet Hit detection
+       if (BulletX >= 1000 ) {
+         BulletTrue = false;
+         BulletX = 100
+         BulletObject[ArrPos] = 1;
+         BulletC = false;
+       }
+       if (BulletTrue == true){
+         requestAnimationFrame(Draw);}else { BulletObject[ArrPos] = 1; BulletC = false;
+         return;
+       }
+        }
+    }
+    //Boss Attack function
+function BossCharge() {
+      var BossX2 = BossX;
+      var AtCenter = false;
+      var AtPos = false;
+      var Attacked = true;
+      var Rounds = 0;
+      var RoundCount = 3;
+      if (Hard == true) {RoundCount = 6;}
+      var playerY2 = playerY;
+      if (Hard == false) {
+      setInterval(GotoCenter, 5);
+      setInterval(Attack, 5);
+    } else {
+      setInterval(GotoCenter, 3);
+      setInterval(Attack, 3);
+    }
+      function GotoCenter() {
+        if (AtCenter == false) {
+      if (BossY < 250) {BossY += 1.5;}
+      if (BossY > 250) {BossY -= 1.5;}
+      if (BossX < 800) {BossX += 3;}
+      if (BossX > 800) {BossX -= 3;}
+      if (((BossX > 796) && (BossX < 804)) && ((BossY > 246) && (BossY < 254))) {
+      AtCenter = true; Attacked = false; playerY2 = playerY;
+        }
+                  }
+    }
+    function Attack() {
+      if (Attacked == false) {
+        if (playerY2 - 50 > BossY) {BossY += 2;}
+        if (playerY2 - 50 < BossY) {BossY -= 2;}
+        if (BossX > 98) {BossX -= 3;}
+        if ((BossX <= 100) && (BossY >= playerY2 - 54) && (BossY <= playerY2 - 46)) {
+          Attacked = true; Rounds ++; if (Rounds >= RoundCount) {clearInterval(GotoCenter); clearInterval(Attack); setInterval(GoToOriginal, 5);} else {AtCenter = false;}
+          }
+        }
+    }
+  function GoToOriginal(){
+    if (AtPos == false) {
+    if (BossY < 250) {BossY += 1.5;}
+    if (BossY > 250) {BossY -= 1.5;}
+    if (BossX < BossX2) {BossX += 3;}
+    if (BossX > BossX2) {BossX -= 3;}
+    if (((BossX > BossX2 -4) && (BossX < BossX2 + 4)) && ((BossY > 246) && (BossY < 254))) {
+    AtPos = true; BossAttack = false; clearInterval(GoToOriginal);
+      }
+    }
+    }
+  }
 // Debugging commands
 window.addEventListener('keydown', function jedssss(event) {
     if ( event.keyCode == 109) {
-      console.log("BossTrue: " + BossTrue +
-    "   BossDead: " + BossDead);
+      BossCharge();
+      BossAttack = true;
+      BossAttackWait = CurrentTime;
     }
   }
 );
 window.addEventListener('keydown', function jedsssssss(event) {
     if ( event.keyCode == 107) {
-      SpawnUpImage()
+            console.log(BossAttack);
     }
   }
 );
@@ -470,7 +619,19 @@ window.addEventListener('keydown', function jedsssdss(event) {
     }
   }
 );
-//
+// slef explanatory
+function check_for_equal_array_elements(my_array){
+  if (my_array.length == 1 || my_array.length == 0) {
+     return true;
+  }
+  for (i=0;i<my_array.length;i++){
+     if (i > 0 && my_array[i] != my_array[i-1]) {
+       return false;
+     }
+  }
+  return true;
+}
+var BulletObject = [];
 </script>
 
 </body>

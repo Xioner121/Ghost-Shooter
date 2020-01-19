@@ -1,0 +1,24 @@
+
+
+
+Issues:
+
+
+Improve:
+1 - Player Left and Right Walk Animation
+
+
+Add:
+1 - Player Death Screen Song
+2 - Multiple entitiy collesion
+Ideas:
+1 - Flowerfield map area/tile?
+2 - Rainy area, with puddle effects?
+
+
+Completed--------------
+fixed - OpeningSkipButton collesion.
+fixed - Opening Drawing of tile 0, Major color change from transparant to opaque.
+fixed - Random Blinking by player when switching animations
+fixed - Songs playing from when they were stopped, needs to play from beggining
+added - Player Death Sound Efx
